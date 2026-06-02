@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 리얼 플립 애니메이션 시계</title>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #ffffff; /* 배경을 완전 화이트로 변경 */
+            font-family: 'Oswald', sans-serif;
+            color: #1a1a1a; 
+        }
+
+        .clock-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* 전체적인 크기를 축소하기 위해 scale 적용 */
+            transform: scale(0.6); 
+            transform-origin: center;
+        }
+
+        .time-group {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+
+        /* 플립 카드 래퍼 */
+        .flip-card {
+            position: relative;
+            width: 220px; 
+            height: 180px; 
+            perspective: 600px; /* 3D 효과를 위한 원근감 */
+        }
+
+        /* 상단/하단 조각들의 공통 스타일 */
+        .card-panel {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            overflow: hidden;
+            background-color: #ffffff;
+            box-sizing: border-box;
+            border: 1.5px solid #d3d3d3;
+        }
+
+        /* 숫자가 그려질 공통 텍스트 스타일 */
+        .card-panel .time-text {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 180px; /* 부모 flip-card의 전체 높이와 일치 */
+            font-size: 140px;
+            font-weight: 700;
+            letter-spacing: 5px; 
+            text-align: center;
+            color: #1a1a1a;
+        }
+
+        /* --- 상단 패널 배치 --- */
+        .card-panel.top {
+            top: 0;
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+            border-bottom: none;
+            transform-origin: bottom center; /* 아래쪽 모서리를 축으로 회전 */
+        }
+        .card-panel.top .time-text {
+            top: 0;
+            line-height: 180px;
+        }
+
+        /* --- 하단 패널 배치 --- */
+        .card-panel.bottom {
+            bottom: 0;
+            border-bottom-left-radius: 16px;
+            border-bottom-right-radius: 16px;
+            border-top: none;
+            transform-origin: top center; /* 위쪽 모서리를 축으로 회전 */
+            display: flex;
+            align-items: flex-end;
+        }
+        .card-panel.bottom .time-text {
+            bottom: 0;
+            line-height: 180px;
+        }
+
+        /* --- 중앙 분할선선 --- */
+        .split {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 1.5px; 
+            background-color: #f8f8f8; 
+            transform: translateY(-50%);
+            z-index: 10;
+        }
+
+        /* --------------------------------------
+           리얼 3D 플립 애니메이션 핵심 효과
+        -------------------------------------- */
+        
+        /* 떨어지는 상단 패널 (0도 -> -90도 앞쪽으로 꺾임) */
+        @keyframes flipTop {
+            0% { transform: rotateX(0deg); }
+            100% { transform: rotateX(-90deg); }
+        }
+
+        /* 나타나는 하단 패널 (90도 뒤에서 -> 0도로 내려옴) */
+        @keyframes flipBottom {
+            0% { transform: rotateX(90deg); }
+            100% { transform: rotateX(0deg); }
+        }
+
+        .flip-top {
+            animation: flipTop 0.3s ease-in forwards;
+            z-index: 5;
+        }
+
+        .flip-bottom {
+            animation: flipBottom 0.3s ease-out 0.3s forwards;
+            z-index: 5;
+            transform: rotateX(90deg); /* 시작 전 대기 상태 */
+        }
+
+        /* 정보 표시 영역 */
+        .info-group {
+            display: flex;
+            justify-content: space-between;
+            width: 460px; 
+            font-size: 26px; 
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #000000; 
+            padding: 0 5px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="clock-container">
+        <div class="time-group">
+            <div class="flip-card" id="hours-card">
+                <div class="card-panel top bg"><div class="time-text">00</div></div>
+                <div class="card-panel bottom bg"><div class="time-text">00</div></div>
+                <div class="card-panel top fg"><div class="time-text">00</div></div>
+                <div class="card-panel bottom fg"><div class="time-text">00</div></div>
+                <div class="split"></div>
+            </div>
+            
+            <div class="flip-card" id="minutes-card">
+                <div class="card-panel top bg"><div class="time-text">00</div></div>
+                <div class="card-panel bottom bg"><div class="time-text">00</div></div>
+                <div class="card-panel top fg"><div class="time-text">00</div></div>
+                <div class="card-panel bottom fg"><div class="time-text">00</div></div>
+                <div class="split"></div>
+            </div>
+        </div>
+        
+        <div class="info-group">
+            <span id="ampm">AM</span>
+            <span id="weekday">MONDAY</span>
+        </div>
+    </div>
+
+    <script>
+        function flipCard(cardId, newValue) {
+            const card = document.getElementById(cardId);
+            
+            // 전면(fg)에 있는 현재 텍스트 가져오기
+            const currentText = card.querySelector('.fg .time-text').textContent;
+            
+            // 값이 같으면 애니메이션을 실행하지 않음
+            if (currentText === newValue) return;
+
+            // 1. 배경(bg) 패널들에 새로운 숫자를 미리 세팅합니다.
+            card.querySelectorAll('.bg .time-text').forEach(el => el.textContent = newValue);
+
+            const topFg = card.querySelector('.top.fg');
+            const bottomBg = card.querySelector('.bottom.bg');
+
+            // 2. 애니메이션 클래스 추가
+            // 기존 상단은 앞으로 엎어지고(flip-top), 대기하던 새 하단은 내려옵니다(flip-bottom).
+            topFg.classList.add('flip-top');
+            bottomBg.classList.add('flip-bottom');
+
+            // 3. 애니메이션이 끝난 후(총 0.6초) 구조를 동기화합니다.
+            setTimeout(() => {
+                // 전면(fg) 패널들의 숫자도 새 숫자로 교체
+                card.querySelectorAll('.fg .time-text').forEach(el => el.textContent = newValue);
+                
+                // 애니메이션 클래스 제거 및 원래 상태 복원
+                topFg.classList.remove('flip-top');
+                bottomBg.classList.remove('flip-bottom');
+                
+                // 새 스냅샷을 배경에도 동일하게 맞춰둠
+                card.querySelectorAll('.bg .time-text').forEach(el => el.textContent = newValue);
+            }, 600); // 0.3초(top) + 0.3초(bottom) = 600ms
+        }
+
+        function updateClock() {
+            const now = new Date();
+            
+            let hours = now.getHours();
+            const minutes = now.getMinutes();
+            
+            const ampmValue = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; 
+
+            const hoursStr = hours.toString().padStart(2, '0');
+            const minutesStr = minutes.toString().padStart(2, '0');
+
+            const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+            const weekdayStr = weekdays[now.getDay()];
+
+            // 카드 플립 함수 호출
+            flipCard('hours-card', hoursStr);
+            flipCard('minutes-card', minutesStr);
+            
+            document.getElementById('ampm').textContent = ampmValue;
+            document.getElementById('weekday').textContent = weekdayStr;
+        }
+
+        // 초기에 즉시 실행 후 1초마다 갱신
+        updateClock();
+        setInterval(updateClock, 1000);
+    </script>
+
+</body>
+</html>
